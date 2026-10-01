@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Creator Stack</title>
+<meta name="description" content="Directory of tools for video editors and content creators.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<!-- Tailwind via CDN : aucun build requis (pour la production, préférer un build Tailwind) -->
+<script src="https://cdn.tailwindcss.com"></script>
+<script>tailwind.config={theme:{extend:{fontFamily:{sans:['Sora','ui-sans-serif','system-ui','sans-serif']}}}};</script>
+<style>
+  /* Fond #050505 + lueurs d'ambiance très subtiles */
+  body{background-color:#050505;background-attachment:fixed;
+    background-image:radial-gradient(60rem 40rem at 15% -10%,rgba(76,61,190,.16),transparent 60%),
+    radial-gradient(50rem 35rem at 95% 10%,rgba(14,116,144,.12),transparent 60%),
+    radial-gradient(45rem 30rem at 50% 110%,rgba(131,24,67,.10),transparent 60%)}
+  .glass{background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.08);
+    -webkit-backdrop-filter:blur(18px) saturate(140%);backdrop-filter:blur(18px) saturate(140%)}
+  /* Scroll reveal + survol des cartes */
+  .card{opacity:0;transform:translateY(24px);transition:opacity .7s cubic-bezier(.2,.7,.2,1),transform .7s cubic-bezier(.2,.7,.2,1),border-color .35s,box-shadow .35s,background-color .35s}
+  .card.is-visible{opacity:1;transform:none}
+  .card.is-visible:hover{transform:translateY(-6px);border-color:rgba(167,139,250,.45);background:rgba(255,255,255,.055);box-shadow:0 18px 50px -18px rgba(124,92,255,.35)}
+  .chip{transition:all .25s}.chip[aria-pressed="true"]{background:#fff;color:#050505;border-color:#fff}
+  .lang button{transition:color .2s}.lang button[aria-pressed="true"]{color:#fff}
+  /* Modale : fondu + léger zoom */
+  #modal{opacity:0;visibility:hidden;pointer-events:none;transition:opacity .3s ease,visibility 0s .3s}
+  #modal.open{opacity:1;visibility:visible;pointer-events:auto;transition:opacity .3s ease}
+  #panel{transform:translateY(16px) scale(.97);transition:transform .35s cubic-bezier(.2,.7,.2,1)}
+  #modal.open #panel{transform:none}
+  .field{width:100%;border-radius:.75rem;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);padding:.7rem .9rem;font-size:.875rem;color:#fff;transition:border-color .2s,background .2s}
+  .field:focus{outline:none;border-color:rgba(167,139,250,.6);background:rgba(255,255,255,.08)}
+  select.field option{background:#111;color:#fff}
+  .card.hidden{display:none}
+  .featured{border-color:rgba(251,191,36,.4)!important;box-shadow:0 0 0 1px rgba(251,191,36,.12) inset,0 0 44px -14px rgba(251,191,36,.35)}
+  .plan input{position:absolute;opacity:0}
+  .plan div{border:1px solid rgba(255,255,255,.1);border-radius:.75rem;padding:.6rem .8rem;transition:all .2s;cursor:pointer}
+  .plan input:checked+div{border-color:rgba(251,191,36,.6);background:rgba(251,191,36,.08)}
+  .plan input:focus-visible+div{outline:2px solid #a78bfa}
+  .toast{opacity:0;transform:translate(-50%,12px);transition:all .3s;pointer-events:none}
+  .toast.show{opacity:1;transform:translate(-50%,0)}
+  :focus-visible{outline:2px solid #a78bfa;outline-offset:3px}
+  @media (prefers-reduced-motion:reduce){.card{transition:none;opacity:1;transform:none}#modal,#panel{transition:none}}
+</style>
+</head>
+<body class="font-sans text-zinc-200 antialiased min-h-screen">
+
+<!-- ============ HEADER FIXE ============ -->
+<header class="sticky top-0 z-40 glass border-x-0 border-t-0">
+  <div class="mx-auto max-w-7xl px-5 py-3 flex flex-wrap items-center gap-x-4 gap-y-3 sm:gap-x-6">
+    <a href="#" class="flex items-center gap-2 shrink-0" aria-label="Creator Stack">
+      <span class="h-7 w-7 rounded-lg bg-gradient-to-br from-violet-400 to-cyan-300 grid place-items-center text-[#050505] text-xs font-bold">CS</span>
+      <span class="font-semibold tracking-tight text-white">Creator Stack</span>
+    </a>
+    <!-- Recherche globale (order-last : passe sous le logo sur mobile) -->
+    <label class="relative order-last w-full sm:order-none sm:w-auto sm:flex-1 sm:max-w-xl sm:mx-auto">
+      <svg class="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <input id="search" type="search" autocomplete="off" data-ph="search" class="w-full rounded-full bg-white/5 border border-white/10 pl-11 pr-16 py-2.5 text-sm placeholder-zinc-500 focus:bg-white/[.08] focus:border-violet-400/50 focus:outline-none transition">
+      <kbd id="kbd" class="hidden sm:block absolute right-4 top-1/2 -translate-y-1/2 text-[11px] text-zinc-500 border border-white/10 rounded px-1.5 py-0.5">Ctrl K</kbd>
+    </label>
+    <!-- Sélecteur de langue FR | EN -->
+    <div class="lang ml-auto sm:ml-0 flex items-center gap-2 text-sm text-zinc-500" role="group" aria-label="Language">
+      <button type="button" data-lang="fr">FR</button><span aria-hidden="true">|</span><button type="button" data-lang="en">EN</button>
+    </div>
+    <button id="openModal" type="button" data-i18n="propose" class="shrink-0 rounded-full bg-white text-[#050505] text-sm font-medium px-4 py-2.5 hover:bg-violet-200 transition"></button>
+  </div>
+</header>
+
+<main class="mx-auto max-w-7xl px-5">
+  <!-- ============ HERO ============ -->
+  <section class="pt-20 pb-12 sm:pt-28 text-center">
+    <h1 data-i18n="heroTitle" class="text-4xl sm:text-6xl font-semibold tracking-tight text-white leading-[1.08] max-w-3xl mx-auto"></h1>
+    <p data-i18n="heroSub" class="mt-6 text-base sm:text-lg text-zinc-400 font-light max-w-xl mx-auto leading-relaxed"></p>
+    <div id="filters" class="scroll-mt-24 mt-10 flex flex-wrap justify-center gap-2.5" role="group"></div>
+    <p id="count" class="mt-6 text-sm text-zinc-500" aria-live="polite"></p>
+  </section>
+  <!-- Section "En vedette" : emplacements sponsorisés, fixe en haut du catalogue -->
+  <section id="featuredWrap" class="pb-10" aria-labelledby="fTitle">
+    <h2 id="fTitle" data-i18n="featured" class="mb-4 text-sm font-medium text-amber-200/80"></h2>
+    <div id="featured" class="grid gap-5 sm:grid-cols-2 lg:grid-cols-3"></div>
+  </section>
+  <section id="grid" class="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 pb-24"></section>
+  <!-- État vide -->
+  <div id="empty" class="hidden text-center pb-24 text-zinc-400">
+    <div class="mx-auto h-14 w-14 rounded-2xl glass grid place-items-center text-zinc-500"><svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5M8.5 11h5"/></svg></div>
+    <h3 data-i18n="emptyT" class="mt-5 font-semibold text-white"></h3>
+    <p data-i18n="emptyS" class="mt-1.5 text-sm font-light"></p>
+    <button id="reset" type="button" data-i18n="reset" class="mt-5 rounded-full border border-white/15 text-sm text-white px-5 py-2.5 hover:bg-white/10 transition"></button>
+  </div>
+<!-- Sponsoring : 3 formules, chacune pointe vers son lien Stripe Checkout -->
+  <section id="sponsor" class="pb-24" aria-labelledby="spTitle">
+    <div class="text-center max-w-xl mx-auto">
+      <h2 id="spTitle" data-i18n="spTitle" class="text-3xl font-semibold text-white tracking-tight"></h2>
+      <p data-i18n="spSub" class="mt-3 text-zinc-400 font-light"></p>
+    </div>
+    <div id="spCards" class="mt-10 grid gap-5 md:grid-cols-3 max-w-4xl mx-auto"></div>
+  </section>
+</main>
+<footer class="border-t border-white/5 py-10 text-center text-sm text-zinc-600"><span data-i18n="footer"></span> <a href="#sponsor" data-i18n="spLink" class="underline underline-offset-4 hover:text-zinc-300 transition"></a></footer>
+
+<!-- ============ MODALE "PROPOSER UN OUTIL" ============ -->
+<div id="modal" class="fixed inset-0 z-50 grid place-items-center p-5 bg-black/60 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="mTitle" aria-hidden="true">
+  <div id="panel" class="glass w-full max-w-md max-h-[90vh] overflow-y-auto rounded-2xl p-7 bg-[#0b0b10]/90">
+    <div class="flex items-start justify-between gap-4">
+      <div>
+        <h2 id="mTitle" data-i18n="mTitle" class="text-xl font-semibold text-white tracking-tight"></h2>
+        <p data-i18n="mSub" class="mt-1.5 text-sm text-zinc-400 font-light"></p>
+      </div>
+      <button type="button" id="closeModal" aria-label="Close" class="text-zinc-500 hover:text-white transition text-2xl leading-none">&times;</button>
+    </div>
+    <form id="form" class="mt-6 space-y-4">
+      <label class="block text-sm text-zinc-300"><span data-i18n="fName"></span>
+        <input name="name" required data-ph="phName" class="field mt-1.5" autocomplete="off"></label>
+      <label class="block text-sm text-zinc-300"><span data-i18n="fUrl"></span>
+        <input name="url" type="url" required data-ph="phUrl" class="field mt-1.5"></label>
+      <label class="block text-sm text-zinc-300"><span data-i18n="fModel"></span>
+        <select name="model" class="field mt-1.5">
+          <option value="free" data-i18n="mFree"></option><option value="freemium" data-i18n="mFreemium"></option><option value="paid" data-i18n="mPaid"></option>
+        </select></label>
+      <label class="block text-sm text-zinc-300"><span data-i18n="fEmail"></span>
+        <input name="email" type="email" autocomplete="email" data-ph="phEmail" class="field mt-1.5"></label>
+      <label class="flex items-start gap-3 text-sm text-zinc-300 cursor-pointer">
+        <input type="checkbox" name="sponsored" class="mt-0.5 h-4 w-4 accent-violet-400">
+        <span><span data-i18n="fSponsor"></span><span data-i18n="fSponsorHint" class="block text-xs text-zinc-500 font-light mt-0.5"></span></span></label>
+      <!-- Grille tarifaire de la mise en avant (visible si la case est cochée) -->
+      <fieldset id="plans" class="hidden"><legend data-i18n="pTitle" class="text-sm text-zinc-300"></legend>
+        <div id="planList" class="mt-2 grid gap-2"></div>
+        <p data-i18n="pNote" class="mt-2 text-xs text-zinc-500 font-light"></p></fieldset>
+      <input type="text" name="_gotcha" tabindex="-1" autocomplete="off" style="display:none !important">   <!-- honeypot anti-spam Formspree -->
+      <button type="submit" data-i18n="send" class="w-full rounded-full bg-white text-[#050505] text-sm font-medium py-3 hover:bg-violet-200 transition"></button>
+    </form>
+    <!-- Message de confirmation -->
+    <div id="thanks" class="hidden text-center py-8">
+      <div class="mx-auto h-12 w-12 rounded-full border border-emerald-400/40 bg-emerald-400/10 grid place-items-center text-emerald-300">
+        <svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m5 12 5 5 9-10"/></svg></div>
+      <h3 data-i18n="thanksT" class="mt-5 text-lg font-semibold text-white"></h3>
+      <p data-i18n="thanksS" class="mt-1.5 text-sm text-zinc-400 font-light"></p>
+      <div id="payWrap" class="hidden mt-6"><a id="payLink" href="#" target="_blank" rel="noopener" class="inline-block rounded-full bg-white text-[#050505] text-sm font-medium px-5 py-2.5 hover:bg-violet-200 transition"></a></div>
+      <button type="button" id="closeThanks" data-i18n="close" class="mt-6 inline-block rounded-full border border-white/10 text-sm text-zinc-300 px-6 py-2.5 hover:bg-white/10 transition"></button>
+      
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast fixed bottom-6 left-1/2 z-[60] glass rounded-full px-5 py-2.5 text-sm text-white bg-[#0b0b10]/90" role="status" aria-live="polite"></div>
+
+<script>
+/* ===================== 1) DONNÉES =====================
+   Helper T() : nom, modèle (free|freemium|trial|paid), catégorie, tags, URL (remplacer par vos liens d'affiliation),
+   description FR, description EN. Le logo vient de l'API Google Favicon à partir de l'URL. */
+/* Le 8e paramètre optionnel ajoute des champs (ex. added = date d'ajout pour le badge NEW) */
+const slug=s=>s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+/* Champs de chaque outil : id, name, category (principale ; cat peut en lister plusieurs), description, icon_url,
+   tags, affiliate_link_placeholder (collez ici votre lien d'affiliation : il est prioritaire sur url), is_sponsored */
+const T=(name,model,cat,tags,url,desc_fr,desc_en,x={})=>({id:slug(name),name,model,cat,category:cat.split(' ')[0],tags:tags.split(','),url,
+  desc_fr,desc_en,description:desc_fr,icon_url:`https://www.google.com/s2/favicons?domain=${new URL(url).hostname}&sz=128`,
+  affiliate_link_placeholder:'',is_sponsored:false,...x});
+const N={added:'2026-10-01'};   // outils ajoutés récemment : badge NEW pendant 30 jours
+const toolsData=[
+  // --- Stock vidéo & B-roll ---
+  T('Pexels Vidéos','free','stock','Pexels,Stock,4K','https://www.pexels.com/videos/','Vidéos libres de droits en HD et 4K, sans attribution.','Free HD and 4K stock videos, no attribution needed.'),
+  T('Pixabay','free','stock','Stock,Vidéo,Musique','https://pixabay.com/videos/','Vidéos, images et musiques sous licence libre.','Videos, images and music under a free license.'),
+  T('Mixkit','free','stock','Stock,SFX,Templates','https://mixkit.co/','Clips, effets sonores et musiques gratuits, bien triés.','Curated free clips, sound effects and music.'),
+  T('Coverr','free','stock','Stock,B-roll','https://coverr.co/','B-roll gratuit et propre pour vos arrière-plans.','Clean free B-roll for your backgrounds.'),
+  T('Videvo','freemium','stock','Stock,Motion','https://www.videvo.net/','Vidéos et éléments motion, catalogue gratuit et premium.','Videos and motion assets, free and premium catalog.'),
+  T('Mazwai','free','stock','Stock,Cinéma','https://mazwai.com/','Séquences au rendu cinéma, gratuites en Creative Commons.','Cinematic footage, free under Creative Commons.'),
+  T('Dareful','free','stock','Stock,Nature','https://dareful.com/','Séquences gratuites de nature et de paysages.','Free nature and landscape footage.'),
+  T('Videezy','freemium','stock','Stock,Motion','https://www.videezy.com/','Vidéos et fonds animés, gratuits avec option premium.','Videos and animated backgrounds, free with premium option.'),
+  T('Storyblocks','paid','stock','Stock,Illimité','https://www.storyblocks.com/','Téléchargements illimités de vidéo et d\'audio sur abonnement.','Unlimited video and audio downloads by subscription.'),
+  T('Artgrid','paid','stock','Stock,Cinéma,4K','https://artgrid.io/','Séquences cinéma de haut niveau sous licence annuelle.','High-end cinematic footage under an annual license.'),
+  // --- Audio & SFX ---
+  T('Freesound','free','audio','Audio,SFX,Communauté','https://freesound.org/','Base collaborative de bruitages sous licences Creative Commons.','Collaborative sound library under Creative Commons.'),
+  T('YouTube Audio Library','free','audio','Audio,Musique,YouTube','https://studio.youtube.com/','Musiques et effets gratuits dans YouTube Studio.','Free music and effects inside YouTube Studio.'),
+  T('Bensound','freemium','audio','Musique,Licence','https://www.bensound.com/','Musiques gratuites avec attribution, licences payantes sans.','Free music with credit, paid licenses without.'),
+  T('Uppbeat','freemium','audio','Musique,Créateurs','https://uppbeat.io/','Musique pour créateurs, avec un plan gratuit mensuel.','Music for creators, with a monthly free plan.'),
+  T('BBC Sound Effects','free','audio','SFX,Archives','https://sound-effects.bbcrewind.co.uk/','Des milliers de sons d\'archives de la BBC, gratuits.','Thousands of free BBC archive sound effects.'),
+  T('Sonniss','free','audio','SFX,Game Audio','https://sonniss.com/','Packs d\'effets sonores professionnels offerts chaque année.','Professional sound effects packs released free each year.'),
+  T('Free Music Archive','free','audio','Musique,Indépendant','https://freemusicarchive.org/','Musique indépendante en licences libres, à parcourir par genre.','Independent music under open licenses, browse by genre.'),
+  T('Epidemic Sound','trial','audio','Audio,Musique,Licence','https://www.epidemicsound.com/','Musique premium et SFX pour créateurs. Essai gratuit.','Premium music and SFX for creators. Free trial.'),
+  T('Artlist','paid','audio','Audio,Musique,Stock','https://artlist.io/','Musique de qualité cinéma, licence universelle annuelle.','Cinema-grade music with a universal annual license.'),
+  // --- Sous-titres & IA ---
+  T('Submagic','trial','edit','IA,Sous-titres,Shorts','https://www.submagic.co/','Sous-titres animés par IA pour formats courts. Essai gratuit.','AI animated captions for short-form video. Free trial.'),
+  T('CapCut','freemium','edit','IA,Montage,Mobile','https://www.capcut.com/','Montage avec sous-titres automatiques et modèles.','Editing with auto captions and templates.'),
+  T('Descript','freemium','edit','IA,Transcription','https://www.descript.com/','Montez la vidéo à partir de sa transcription.','Edit video straight from its transcript.'),
+  T('VEED','freemium','edit','IA,Sous-titres,Web','https://www.veed.io/','Éditeur en ligne : sous-titres, traduction, audio propre.','Online editor: captions, translation, clean audio.'),
+  T('Opus Clip','freemium','edit','IA,Clips,Shorts','https://www.opus.pro/','Transforme une longue vidéo en clips verticaux.','Turns long videos into vertical clips.'),
+  T('Subtitle Edit','free','edit','Open source,Sous-titres','https://www.nikse.dk/subtitleedit','Créez, synchronisez et corrigez vos sous-titres.','Create, sync and fix subtitles, open source.'),
+  T('LALAL.AI','freemium','audio','IA,Stems,Voix','https://www.lalal.ai/','Séparation de voix et d\'instruments par IA.','AI separation of vocals and instruments.'),
+  T('ElevenLabs','freemium','audio','IA,Voix-off','https://elevenlabs.io/','Voix de synthèse très naturelles pour vos voix-off.','Highly natural synthetic voices for voice-overs.'),
+  T('Whisper','free','productivity','IA,Open source,Transcription','https://openai.com/index/whisper/','Modèle open source de transcription multilingue.','Open source multilingual speech recognition model.'),
+  T('Adobe Podcast','freemium','audio','IA,Audio,Voix','https://podcast.adobe.com/','Améliore la voix et supprime le bruit de fond.','Enhances voice and removes background noise.'),
+  // --- Plugins, LUTs & étalonnage ---
+  T('DaVinci Resolve','freemium','edit','Étalonnage,Montage','https://www.blackmagicdesign.com/products/davinciresolve','Montage, étalonnage et audio, avec version gratuite complète.','Editing, grading and audio, with a full free version.'),
+  T('Motion Array','trial','edit stock','Plugins,Templates','https://motionarray.com/','Presets et templates Premiere et After Effects. Essai.','Premiere and After Effects presets and templates. Trial.'),
+  T('FilmConvert','trial','edit','LUTs,Grain,Film','https://www.filmconvert.com/','Émulation de pellicules et de caméras. Version d\'essai.','Film stock and camera emulation. Trial version.'),
+  T('Dehancer','paid','edit','LUTs,Film,Étalonnage','https://www.dehancer.com/','Émulation argentique pour un rendu cinéma fidèle.','Film emulation for a faithful cinematic look.'),
+  T('Mister Horse','trial','edit','Plugins,After Effects','https://misterhorse.com/','Animations et outils pour Premiere et After Effects. Essai.','Animation tools for Premiere and After Effects. Trial.'),
+  T('Motion Bro','paid','edit','Plugins,Transitions','https://motionbro.com/','Extensions de transitions et d\'effets pour Adobe.','Transition and effects extensions for Adobe apps.'),
+  T('Envato Elements','paid','design stock','Templates,Stock,Plugins','https://elements.envato.com/','Abonnement illimité : templates, musiques, plugins.','Unlimited subscription: templates, music, plugins.'),
+  T('Film Impact','freemium','edit','Transitions,Effets','https://filmimpact.net/','Transitions et effets pour Premiere, avec packs gratuits.','Premiere transitions and effects, with free packs.'),
+  // --- Utilitaires ---
+  T('HandBrake','free','productivity','Open source,Encodage','https://handbrake.fr/','Convertisseur vidéo open source, puissant et fiable.','Reliable open source video transcoder.'),
+  T('Cobalt','free','productivity','Téléchargement,Web','https://cobalt.tools/','Récupérez des médias en ligne sans publicité ni inscription.','Save online media with no ads and no sign-up.'),
+  T('Frame.io','freemium','productivity','Review,Collaboration','https://frame.io/','Relecture vidéo avec commentaires à l\'image près.','Video review with frame-accurate comments.'),
+  T('Notion Templates','freemium','productivity','Organisation,Templates','https://www.notion.com/templates','Modèles de planning éditorial et de suivi de projets.','Editorial planning and project tracking templates.'),
+  T('Snapdrop','free','productivity','Transfert,Local','https://snapdrop.net/','Envoyez des fichiers entre appareils depuis le navigateur.','Send files between devices from the browser.'),
+  T('CloudConvert','freemium','productivity','Conversion,Formats','https://cloudconvert.com/','Convertit des centaines de formats de fichiers en ligne.','Converts hundreds of file formats online.'),
+  T('OBS Studio','free','productivity','Open source,Enregistrement','https://obsproject.com/','Enregistrement d\'écran et streaming, gratuit et open source.','Free open source screen recording and streaming.'),
+  T('Audacity','free','audio','Audio,Open source','https://www.audacityteam.org/','Éditeur audio gratuit pour nettoyer et mixer vos pistes.','Free audio editor to clean and mix your tracks.'),
+  // --- Ajouts récents (badge NEW) ---
+  T('Captions.ai','freemium','edit','IA,Sous-titres,Mobile','https://www.captions.ai/','Sous-titres et montage IA pensés pour la vidéo verticale.','AI captions and editing built for vertical video.',N),
+  T('AutoPod','paid','edit','IA,Podcast,Premiere','https://www.autopod.fm/','Coupe automatiquement les plans multicaméra de vos podcasts dans Premiere.','Automatically cuts multicam podcast edits inside Premiere.',N),
+  T('HeyGen','freemium','edit','IA,Avatars,Traduction','https://www.heygen.com/','Avatars IA et traduction vidéo avec synchronisation labiale.','AI avatars and video translation with lip sync.',N),
+  T('Runway','freemium','edit','IA,Génération,Vidéo','https://runwayml.com/','Génération et retouche vidéo par IA, de l\'image à la séquence.','AI video generation and editing, from image to footage.',N),
+  T('ElevenLabs Sound Effects','freemium','audio','IA,SFX,Audio','https://elevenlabs.io/sound-effects','Génère des effets sonores à partir d\'une simple description.','Generates sound effects from a simple text prompt.',N),
+  T('Kapwing','freemium','edit','IA,Montage,Web','https://www.kapwing.com/','Éditeur collaboratif en ligne avec sous-titres automatiques.','Collaborative online editor with auto subtitles.',N),
+  T('ZapSplat','freemium','audio','SFX,Musique','https://www.zapsplat.com/','Des milliers d\'effets sonores, gratuits avec attribution.','Thousands of sound effects, free with credit.',N),
+  T('Moises.ai','freemium','audio','IA,Stems,Musique','https://moises.ai/','Sépare voix et instruments, change la tonalité d\'un morceau.','Separates vocals and instruments, shifts a track\'s key.',N),
+  T('Fadr','freemium','audio','IA,Stems,Remix','https://fadr.com/','Stems, remix et création musicale par IA, dans le navigateur.','AI stems, remixing and music creation in the browser.',N),
+  T('Vocal Remover','free','audio','Voix,Karaoké,Stems','https://vocalremover.org/','Extrait la voix ou l\'instrumental d\'un morceau, gratuitement.','Extracts vocals or instrumentals from a track for free.',N),
+  T('Shutter Encoder','free','productivity','Encodage,Gratuit,FR','https://www.shutterencoder.com/','L\'alternative française à HandBrake : encodage, conversion, proxys.','The French alternative to HandBrake: encoding, conversion, proxies.',N),
+  T('MacWhisper','freemium','productivity','IA,Transcription,Mac','https://goodsnooze.gumroad.com/l/macwhisper','Transcription locale sur Mac, basée sur Whisper.','Local transcription on Mac, powered by Whisper.',N),
+  T('Whisper Desktop','free','productivity','IA,Transcription,Windows','https://github.com/Const-me/Whisper','Transcription locale sous Windows, accélérée par le GPU.','Local transcription on Windows, GPU accelerated.',N),
+  T('SwissTransfer','free','productivity','Transfert,Gros fichiers','https://www.swisstransfer.com/','Envoi gratuit de gros fichiers, hébergé en Suisse.','Free large file transfers, hosted in Switzerland.',N),
+  T('WeTransfer','freemium','productivity','Transfert,Livrables','https://wetransfer.com/','Envoyez vos livrables en quelques clics, sans compte.','Send deliverables in a few clicks, no account needed.',N),
+  T('LosslessCut','free','productivity','Open source,Découpe','https://github.com/mifi/lossless-cut','Découpe vidéo sans réencodage, ultra rapide.','Lossless video trimming with no re-encoding, very fast.',N),
+  // --- 3D, VTubing & avatars ---
+  T('Booth.pm','freemium','vtuber','Avatars,3D','https://booth.pm/','Marketplace japonaise d\'avatars et d\'accessoires 3D.','Japanese marketplace for 3D avatars and accessories.',N),
+  T('VRoid Hub','free','vtuber','VRM,Avatars','https://hub.vroid.com/','Partage de modèles d\'avatars VRM gratuits.','Sharing hub for free VRM avatar models.',N),
+  T('CGTrader','freemium','vtuber','3D,Modèles','https://www.cgtrader.com/','Place de marché de modèles 3D, gratuits et payants.','3D model marketplace, free and paid.',N),
+  T('TurboSquid','paid','vtuber','3D,Pro','https://www.turbosquid.com/','Modèles 3D professionnels pour le cinéma et le jeu.','Professional 3D models for film and games.',N),
+  T('Sketchfab','freemium','vtuber','3D,Viewer','https://sketchfab.com/','Visualisez, partagez et téléchargez des modèles 3D.','View, share and download 3D models.',N),
+  T('Live2D','freemium','vtuber','Rigging,2D','https://www.live2d.com/','Animez vos illustrations en 2D pour le VTubing.','Animate 2D illustrations for VTubing.',N),
+  T('VSeeFace','free','vtuber','Tracking,VRM','https://www.vseeface.icu/','Suivi du visage gratuit pour avatars VRM.','Free face tracking for VRM avatars.',N),
+  T('Luppet','paid','vtuber','Tracking,Mains','https://luppet.appspot.com/','Suivi des mains par webcam pour avatars VRM.','Webcam hand tracking for VRM avatars.',N),
+  T('Warudo','freemium','vtuber','Studio,3D','https://warudo.app/','Studio VTuber 3D avec suivi complet et scènes.','Full-featured 3D VTuber studio with tracking and scenes.',N),
+  T('Blender','free','vtuber','3D,Open source','https://www.blender.org/','Suite 3D open source : modélisation, rig, animation.','Open source 3D suite: modeling, rigging, animation.',N),
+  // --- Design, typographie & mockups ---
+  T('YouWorkForThem','paid','design','Polices,Fonderie','https://www.youworkforthem.com/','Fonderie indépendante de polices et de graphisme.','Independent type foundry and graphics shop.',N),
+  T('Creative Market','freemium','design','Polices,Templates','https://creativemarket.com/','Polices, templates et assets de créateurs indépendants.','Fonts, templates and assets from indie creators.',N),
+  T('Fontfabric','freemium','design','Polices','https://www.fontfabric.com/','Polices modernes, avec une sélection gratuite.','Modern typefaces with a free selection.',N),
+  T('Velvetyne','free','design','Polices,Open source','https://velvetyne.fr/','Fonderie libre française de polices open source.','French libre type foundry of open source fonts.',N),
+  T('Yellow Images','freemium','design','Mockups','https://yellowimages.com/','Mockups réalistes pour présenter vos designs.','Realistic mockups to present your designs.',N),
+  T('Supply Family','freemium','design','Mockups,Assets','https://supply.family/','Mockups, polices et assets pour designers.','Mockups, fonts and assets for designers.',N),
+  // --- Pixel art, game dev & modding ---
+  T('itch.io','freemium','game','Indie,Assets','https://itch.io/','Plateforme de jeux indés et d\'assets de créateurs.','Indie games and creator assets platform.',N),
+  T('Unity Asset Store','freemium','game','Unity,Assets','https://assetstore.unity.com/','Assets, outils et plugins pour Unity.','Assets, tools and plugins for Unity.',N),
+  T('Fab (Unreal Marketplace)','freemium','game','Unreal,Assets','https://www.fab.com/','Place de marché Epic pour Unreal : assets 3D, sons, outils.','Epic marketplace for Unreal: 3D assets, audio, tools.',N),
+  T('Construct 3','freemium','game','No-code,2D','https://www.construct.net/','Créez des jeux 2D sans code, dans le navigateur.','Make 2D games with no code, in the browser.',N),
+  T('Godot','free','game','Moteur,Open source','https://godotengine.org/','Moteur de jeu open source, léger et complet.','Lightweight, full-featured open source game engine.',N),
+  T('Aseprite','paid','game','Pixel art,Sprites','https://www.aseprite.org/','Éditeur de pixel art et d\'animation par sprites.','Pixel art and sprite animation editor.',N),
+  T('Pyxel Edit','paid','game','Pixel art,Tilesets','https://pyxeledit.com/','Éditeur de pixel art pensé pour les tilesets.','Pixel art editor built for tilesets.',N),
+  T('Tiled','free','game','Maps,Open source','https://www.mapeditor.org/','Éditeur de cartes de tuiles, gratuit et flexible.','Free, flexible tile map editor.',N),
+  T('CurseForge','free','game','Mods,Modpacks','https://www.curseforge.com/','Mods, add-ons et modpacks pour de nombreux jeux.','Mods, add-ons and modpacks for many games.',N),
+  T('Modrinth','free','game','Minecraft,Mods','https://modrinth.com/','Plateforme moderne de mods et modpacks Minecraft.','Modern platform for Minecraft mods and modpacks.',N),
+  T('Planet Minecraft','free','game','Minecraft,Schematics','https://www.planetminecraft.com/','Cartes, skins et schematics de la communauté Minecraft.','Community maps, skins and schematics for Minecraft.',N),
+  T('Lunar Client','free','game','Minecraft,Launcher','https://www.lunarclient.com/','Lanceur Minecraft optimisé, avec mods intégrés.','Optimized Minecraft launcher with built-in mods.',N),
+  // --- Beatmaking & production ---
+  T('FL Studio','trial','audio','DAW,Beats','https://www.image-line.com/fl-studio','DAW de référence pour le beatmaking. Version d\'essai.','Go-to DAW for beatmaking. Trial version.',N),
+  T('Ableton Live','trial','audio','DAW,Live','https://www.ableton.com/','DAW pour la création et la performance live. Essai.','DAW for production and live performance. Trial.',N),
+  T('Logic Pro','trial','audio','DAW,Mac','https://www.apple.com/logic-pro/','Studio complet d\'Apple pour Mac. Essai gratuit.','Apple\'s full studio for Mac. Free trial.',N),
+  T('Bitwig Studio','trial','audio','DAW,Modulaire','https://www.bitwig.com/','DAW modulaire et créatif. Essai disponible.','Modular, creative DAW. Trial available.',N),
+  T('Splice','trial','audio','Samples,Plugins','https://splice.com/','Samples, presets et plugins par abonnement.','Samples, presets and plugins by subscription.',N),
+  T('Loopcloud','freemium','audio','Samples,DAW','https://www.loopcloud.com/','Banque de samples intégrée à votre DAW.','Sample library built into your DAW.',N),
+  T('Output Arcade','trial','audio','Loops,Plugin','https://output.com/','Boucles sonores mises à jour en continu. Essai.','Continuously updated loops. Trial.',N),
+  T('Native Instruments','freemium','audio','VST,Instruments','https://www.native-instruments.com/','Instruments et effets virtuels, avec une version Start gratuite.','Virtual instruments and effects, with a free Start edition.',N),
+  T('Plugin Boutique','freemium','audio','VST,Plugins','https://www.pluginboutique.com/','Boutique de VST avec promotions et plugins gratuits.','VST store with sales and free plugins.',N),
+  T('Cymatics','freemium','audio','Samples,Presets','https://cymatics.fm/','Packs de samples et presets, avec des offres gratuites.','Sample and preset packs with free offers.',N),
+  // --- Matériel (audio, rec, mobile) ---
+  T('Shure','paid','gear','Micro,Audio','https://www.shure.com/','Micros de référence pour le podcast et le chant.','Reference microphones for podcasts and vocals.',N),
+  T('Elgato','paid','gear','Wave,Stream','https://www.elgato.com/','Micros Wave, caméras et capture pour streamers.','Wave mics, cameras and capture for streamers.',N),
+  T('Rode','paid','gear','Micro,Créateurs','https://rode.com/','Micros et accessoires pour créateurs de contenu.','Microphones and accessories for content creators.',N),
+  T('Focusrite','paid','gear','Interface,Studio','https://focusrite.com/','Interfaces audio pour home studio.','Audio interfaces for home studios.',N),
+  T('DJI','paid','gear','Micro,Gimbal','https://www.dji.com/','Micros sans fil et stabilisateurs Osmo Mobile.','Wireless mics and Osmo Mobile gimbals.',N),
+  T('Ulanzi','paid','gear','Mobile,Accessoires','https://www.ulanzi.com/','Accessoires mobiles : cages, trépieds, éclairage.','Mobile accessories: cages, tripods, lighting.',N),
+  T('Neewer','paid','gear','Éclairage,Accessoires','https://neewer.com/','Éclairage et accessoires photo et vidéo abordables.','Affordable photo and video lighting and accessories.',N),
+  // --- Plugins & FX vidéo ---
+  T('AEJuice','paid','edit','After Effects,Packs','https://aejuice.com/','Packs d\'animations et de transitions pour After Effects.','Animation and transition packs for After Effects.',N),
+  T('Boris FX','trial','edit','Effets,VFX','https://borisfx.com/','Sapphire, Continuum et Silhouette : effets haut de gamme. Essai.','Sapphire, Continuum and Silhouette: high-end effects. Trial.',N),
+  // --- Écriture, newsletters & IA générative ---
+  T('Substack','freemium','productivity','Newsletter','https://substack.com/','Lancez une newsletter gratuite ou payante.','Launch a free or paid newsletter.',N),
+  T('Beehiiv','freemium','productivity','Newsletter,Growth','https://www.beehiiv.com/','Plateforme de newsletter orientée croissance.','Growth-oriented newsletter platform.',N),
+  T('Kit (ConvertKit)','freemium','productivity','Newsletter,Automations','https://kit.com/','Newsletter et automatisations pour créateurs.','Newsletters and automation for creators.',N),
+  T('Ghost','trial','productivity','Publication,Open source','https://ghost.org/','Publication et abonnements, open source. Essai.','Open source publishing and memberships. Trial.',N),
+  T('Typefully','freemium','productivity','Threads,Social','https://typefully.com/','Rédigez et planifiez vos threads et posts.','Write and schedule your threads and posts.',N),
+  T('Readwise','trial','productivity','Notes,Lecture','https://readwise.io/','Centralise vos surlignages et vos relectures. Essai.','Collects your highlights and reviews. Trial.',N),
+  T('Notion','freemium','productivity','Notes,Planning','https://www.notion.com/','Notes, bases de données et planning éditorial.','Notes, databases and editorial planning.',N),
+  T('Obsidian','free','productivity','Notes,Markdown','https://obsidian.md/','Notes Markdown stockées en local, gratuit en usage perso.','Local Markdown notes, free for personal use.',N),
+  T('Midjourney','paid','design','IA,Images','https://www.midjourney.com/','Génération d\'images par IA, sur abonnement.','AI image generation, subscription-based.',N),
+  T('ChatGPT','freemium','productivity','IA,Assistant','https://chatgpt.com/','Assistant IA pour scripts, idées et recherches.','AI assistant for scripts, ideas and research.',N),
+  T('Claude','freemium','productivity','IA,Assistant','https://claude.ai/','Assistant IA pour écrire, analyser et coder.','AI assistant for writing, analysis and coding.',N),
+  T('Perplexity','freemium','productivity','IA,Recherche','https://www.perplexity.ai/','Moteur de recherche IA avec sources citées.','AI search engine with cited sources.',N)
+];
+/* Emplacements sponsorisés de la section « En vedette » : remplacez par vos vrais sponsors */
+const featuredNames=['Submagic','Epidemic Sound','Descript'];
+toolsData.forEach(t=>t.is_sponsored=featuredNames.includes(t.name));
+/* Grille tarifaire de la mise en avant (d = jours, p = prix en euros) */
+const plans=[   // n = formule, d = jours, p = prix € (doit correspondre au montant du lien Stripe), s = lien Stripe Checkout live
+  {n:'Starter',d:30,p:15,s:'https://buy.stripe.com/dRmbJ21Du5Kd7Iu2kdasg00'},
+  {n:'Pro',d:90,p:35,rec:true,s:'https://buy.stripe.com/bJe6oIci8dcFbYKe2Vasg01'},
+  {n:'Ultimate',d:180,p:69,s:'https://buy.stripe.com/8x26oI2Hy5KdaUGf6Zasg02'}];
+
+/* ===================== 2) TRADUCTIONS ===================== */
+const i18n={
+  fr:{propose:'Proposer un outil',search:'Rechercher un outil, un tag, un usage…',
+    heroTitle:'Tout ce qu\'il faut pour monter mieux, et plus vite.',
+    heroSub:'Banques gratuites, IA, audio, plugins et utilitaires : une sélection d\'outils pour les monteurs et créateurs de contenu.',
+    access:'Accéder',one:'outil',many:'outils',empty:'Aucun outil ne correspond. Essayez un autre mot ou choisissez « Tous ».',
+    footer:'Creator Stack. Certains liens peuvent être des liens d\'affiliation.',
+    badge:{free:'GRATUIT',freemium:'FREEMIUM',trial:'ESSAI GRATUIT',paid:'PAYANT'},
+    f:{all:'Tous',new:'Nouveautés',free:'100% Gratuits',stock:'Stock Vidéo',audio:'Audio & Musique',edit:'Montage & Édition',design:'Design & Visuels',productivity:'Productivité & Utilitaires',vtuber:'3D & VTubing',game:'Game Dev & Mods',gear:'Matériel'},
+    mTitle:'Proposer un outil',mSub:'Un outil manque ? Dites-nous lequel, nous l\'examinons.',fName:'Nom de l\'outil',fUrl:'URL du site',fModel:'Modèle économique',
+    mFree:'Gratuit',mFreemium:'Freemium',mPaid:'Payant',fSponsor:'Sponsorisé / Mise en avant',fSponsorHint:'Je souhaite une mise en avant de cet outil.',
+    send:'Envoyer',featured:'En vedette',spTitle:'Mettez votre outil en vedette',spSub:'Un emplacement en haut du catalogue, vu par les monteurs et créateurs à chaque visite.',spCta:'Choisir',spRec:'Recommandé',spFeat:'Emplacement En vedette en haut du catalogue',spPer:'/mois',spLink:'Sponsoring',pay:'Procéder au paiement Stripe',sendErr:'Envoi impossible, réessayez.',sponsored:'SPONSORISÉ',share:'Copier le lien',copied:'Lien copié !',report:'Signaler un lien mort',reported:'Signalé, merci',reportToast:'Signalement envoyé, merci !',reportWait:'Veuillez patienter avant de signaler un autre lien.',emptyT:'Aucun résultat',emptyS:'Essayez un autre mot ou réinitialisez les filtres.',reset:'Réinitialiser',fEmail:'Votre email (facultatif)',phName:'Ex. CapCut',phUrl:'https://exemple.com',phEmail:'vous@exemple.com',pTitle:'Durée de la mise en avant',pDays:'jours',pRec:'Saison (recommandé)',pNote:'Un email est requis pour finaliser la mise en avant.',thanksT:'Merci, proposition reçue',thanksS:'Nous examinons l\'outil et revenons vers vous si besoin.',close:'Fermer'},
+  en:{propose:'Suggest a tool',search:'Search a tool, a tag, a use case…',
+    heroTitle:'Everything you need to edit better, and faster.',
+    heroSub:'Free libraries, AI, audio, plugins and utilities: a curated selection of tools for video editors and content creators.',
+    access:'Visit',one:'tool',many:'tools',empty:'No tool matches. Try another word or choose "All".',
+    footer:'Creator Stack. Some links may be affiliate links.',
+    badge:{free:'FREE',freemium:'FREEMIUM',trial:'FREE TRIAL',paid:'PAID'},
+    f:{all:'All',new:'New',free:'100% Free',stock:'Stock Video',audio:'Audio & Music',edit:'Editing & Post',design:'Design & Visuals',productivity:'Productivity & Utilities',vtuber:'3D & VTubing',game:'Game Dev & Mods',gear:'Gear'},
+    mTitle:'Suggest a tool',mSub:'Missing a tool? Tell us which one and we will review it.',fName:'Tool name',fUrl:'Website URL',fModel:'Pricing model',
+    mFree:'Free',mFreemium:'Freemium',mPaid:'Paid',fSponsor:'Sponsored / Featured',fSponsorHint:'I would like this tool to be featured.',
+    send:'Send',featured:'Featured',spTitle:'Feature your tool',spSub:'A spot at the top of the catalog, seen by editors and creators on every visit.',spCta:'Choose',spRec:'Recommended',spFeat:'Featured spot at the top of the catalog',spPer:'/month',spLink:'Sponsoring',pay:'Proceed to Stripe payment',sendErr:'Could not send, please try again.',sponsored:'SPONSORED',share:'Copy link',copied:'Link copied!',report:'Report a dead link',reported:'Reported, thanks',reportToast:'Report sent, thank you!',reportWait:'Please wait before reporting another link.',emptyT:'No results',emptyS:'Try another word or reset the filters.',reset:'Reset',fEmail:'Your email (optional)',phName:'E.g. CapCut',phUrl:'https://example.com',phEmail:'you@example.com',pTitle:'Featured duration',pDays:'days',pRec:'Season (recommended)',pNote:'An email is required to set up your featured spot.',thanksT:'Thanks, suggestion received',thanksS:'We will review the tool and get back to you if needed.',close:'Close'}
+};
+const badgeCls={free:'text-emerald-300 bg-emerald-400/10 border-emerald-400/30',freemium:'text-amber-300 bg-amber-400/10 border-amber-400/30',
+  trial:'text-violet-300 bg-violet-400/10 border-violet-400/30',paid:'text-zinc-300 bg-white/5 border-white/15'};
+const has=(t,c)=>t.cat.split(' ').includes(c);   // un outil peut appartenir à plusieurs catégories
+const isNew=t=>!!t.added&&(Date.now()-new Date(t.added))/864e5<30;   // NEW : ajouté il y a moins de 30 jours
+const catFilters=['stock','audio','edit','design','productivity','vtuber','game','gear'];   // catégories = usage principal ; l'IA est un tag (#ia)
+const filters=[['all',()=>true],['new',isNew],['free',t=>t.model==='free'],...catFilters.map(c=>[c,t=>has(t,c)])];
+
+/* ===================== 3) ÉTAT & OUTILS ===================== */
+let lang='fr',active='all',query='',lastFocus=null,toastT,cards=[];
+let lastReportTime=0;   // horodatage du dernier signalement (anti-spam, cooldown de 3 s)
+try{const l=localStorage.getItem('cs-lang');if(l&&i18n[l])lang=l;}catch(e){}            // langue mémorisée
+let reported=new Set();try{reported=new Set(JSON.parse(localStorage.getItem('cs-reported')||'[]'));}catch(e){}
+const $=id=>document.getElementById(id);
+const L=()=>i18n[lang];
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const norm=s=>s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+const tagKey=g=>g.toLowerCase().replace(/\s+/g,'-');   // affichage : #sous-titres, #open-source…
+const price=p=>lang==='fr'?String(p).replace('.',',')+' €':'€'+p;
+
+/* Recherche tolérante : casse, accents, espaces, tirets et ponctuation ignorés.
+   "cap cut", "cap-cut" et "cap" trouvent CapCut. Index précalculé une seule fois. */
+const sq=s=>norm(s).replace(/[^a-z0-9]/g,'');
+toolsData.forEach(t=>{t._k=sq([t.name,t.desc_fr,t.desc_en,t.tags.join(' ')].join(' '));t._t=t.tags.map(sq);});   // index texte + index des tags
+function matches(t,q){
+  /* #tags : casse, accents, tirets et espaces ignorés ("#Sous-titres" = "#sous titres" = "#soustitres") ; "#ia#montage" accepté */
+  const hs=[...q.matchAll(/#([^\s#]*)/g)].map(m=>sq(m[1]));
+  const toks=q.replace(/#[^\s#]*/g,' ').trim().split(/\s+/).map(sq).filter(Boolean);
+  if(!hs.every(g=>t._t.some(x=>x.startsWith(g))))return false;   // chaque #tag doit correspondre à un tag de l'outil
+  return !toks.length||t._k.includes(toks.join(''))||toks.every(w=>t._k.includes(w));
+}
+
+/* Scroll reveal (Intersection Observer). Les cartes masquées en display:none se révèlent à leur réapparition. */
+const reveal=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){const el=e.target;el.classList.add('is-visible');reveal.unobserve(el);setTimeout(()=>el.style.transitionDelay='',900);}}),
+  {threshold:.12,rootMargin:'0px 0px -40px 0px'});
+
+/* Repli du logo : monogramme si le favicon ne charge pas */
+function logoFallback(img){const s=document.createElement('span');s.className='text-sm font-semibold text-zinc-300';
+  s.textContent=img.alt.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();img.replaceWith(s);}
+
+/* ===================== 4) RENDU ===================== */
+function cardHTML(t,i,feat){
+  const l=L(),link=t.affiliate_link_placeholder||t.url;   // le lien d'affiliation est prioritaire
+  return `<article class="card glass rounded-2xl p-6 flex flex-col${feat?' featured':''}" data-i="${i}">
+    <div class="flex items-start justify-between gap-3">
+      <div class="h-11 w-11 rounded-xl bg-white/[.07] border border-white/10 grid place-items-center overflow-hidden">
+        <img src="${esc(t.icon_url)}" alt="${esc(t.name)}" width="28" height="28" loading="lazy" class="h-7 w-7 object-contain" onerror="logoFallback(this)"></div>
+      <div class="flex flex-col items-end gap-1.5">
+        <span data-b class="text-[11px] font-semibold tracking-wide px-2.5 py-1 rounded-full border ${badgeCls[t.model]}">${l.badge[t.model]}</span>
+        ${feat?`<span data-s class="text-[10px] font-medium tracking-wide text-amber-300/90">${l.sponsored}</span>`:''}
+      </div></div>
+    <h2 class="mt-5 flex items-center gap-2 font-semibold text-white text-lg tracking-tight">${esc(t.name)}${isNew(t)?'<span class="text-[10px] font-semibold px-1.5 py-0.5 rounded border border-cyan-300/40 text-cyan-300 bg-cyan-300/10">NEW</span>':''}</h2>
+    <p data-d class="mt-2 text-sm text-zinc-400 font-light leading-relaxed line-clamp-2">${esc(t['desc_'+lang])}</p>
+    <div class="mt-auto pt-6 flex items-end justify-between gap-3">
+      <ul class="flex flex-wrap gap-1.5">${t.tags.map(g=>`<li><button type="button" data-act="tag" data-tag="${esc(tagKey(g))}" class="text-xs text-zinc-400 bg-white/5 border border-white/5 rounded-full px-2.5 py-1 hover:text-white hover:border-violet-400/50 hover:bg-violet-400/10 transition">#${esc(tagKey(g))}</button></li>`).join('')}</ul>
+      <div class="flex items-center gap-2 shrink-0">
+        <button type="button" data-act="share" data-i="${i}" title="${l.share}" aria-label="${l.share}" class="h-9 w-9 grid place-items-center rounded-full border border-white/10 text-zinc-400 hover:text-white hover:bg-white/10 transition"><svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg></button>
+        <a data-a href="${esc(link)}" target="_blank" rel="noopener sponsored" aria-label="${l.access} ${esc(t.name)}" class="text-sm font-medium text-white bg-white/10 hover:bg-white hover:text-[#050505] border border-white/10 rounded-full px-4 py-2 transition">${l.access}</a>
+      </div></div>
+    <button type="button" data-act="report" data-i="${i}" class="mt-4 self-start text-xs text-zinc-600 hover:text-zinc-300 transition">${reported.has(t.name)?l.reported:l.report}</button>
+  </article>`;
+}
+
+/* Construit le DOM UNE seule fois ; ensuite on bascule la classe 'hidden' (aucun innerHTML pendant la frappe) */
+function buildGrid(){
+  $('grid').innerHTML=toolsData.map((t,i)=>cardHTML(t,i,false)).join('');
+  $('featured').innerHTML=featuredNames.map(n=>toolsData.findIndex(t=>t.name===n)).filter(i=>i>-1).map(i=>cardHTML(toolsData[i],i,true)).join('');
+  cards=[...$('grid').children];
+  document.querySelectorAll('.card').forEach((el,k)=>{el.style.transitionDelay=`${(k%3)*70}ms`;reveal.observe(el);});
+}
+/* Changement de langue : met à jour les textes en place, sans reconstruire */
+function relabel(){
+  const l=L();
+  document.querySelectorAll('.card').forEach(el=>{
+    const t=toolsData[el.dataset.i],q=x=>el.querySelector(x);
+    q('[data-d]').textContent=t['desc_'+lang];q('[data-b]').textContent=l.badge[t.model];
+    const a=q('[data-a]');a.textContent=l.access;a.setAttribute('aria-label',l.access+' '+t.name);
+    const sh=q('[data-act=share]');sh.title=l.share;sh.setAttribute('aria-label',l.share);
+    const sp=q('[data-s]');if(sp)sp.textContent=l.sponsored;
+    q('[data-act=report]').textContent=reported.has(t.name)?l.reported:l.report;
+  });
+}
+/* Filtre + recherche par masquage CSS */
+function applyFilter(){
+  const test=filters.find(f=>f[0]===active)[1];let n=0;
+  cards.forEach((el,i)=>{const show=test(toolsData[i])&&matches(toolsData[i],query);el.classList.toggle('hidden',!show);if(show)n++;});
+  $('empty').classList.toggle('hidden',n>0);
+  $('count').textContent=`${n} ${n>1?L().many:L().one}`;
+  $('featuredWrap').classList.toggle('hidden',!!query.trim()||!$('featured').children.length);   // vedettes masquées pendant une recherche
+  document.querySelectorAll('#filters [data-id]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.id===active));
+}
+/* Filtres avec compteurs dynamiques, ex. « Stock Vidéo (12) » */
+function renderFilters(){
+  $('filters').innerHTML=filters.map(([id,fn])=>`<button type="button" data-id="${id}" aria-pressed="${id===active}" class="chip glass rounded-full px-4 py-2 text-sm text-zinc-300 hover:border-white/30">${L().f[id]} <span class="opacity-60">(${toolsData.filter(fn).length})</span></button>`).join('');
+}
+function renderPlans(){
+  const l=L(),cur=(document.querySelector('[name=plan]:checked')||{}).value||90;
+  /* Options de la modale */
+  $('planList').innerHTML=plans.map(p=>`<label class="plan relative block"><input type="radio" name="plan" value="${p.d}"${p.d==cur?' checked':''}><div class="flex items-center justify-between text-sm"><span class="text-white">${p.n}<span class="block text-xs text-zinc-400">${p.d} ${l.pDays}${p.rec?', '+l.pRec:''}</span></span><span class="font-semibold text-white">${price(p.p)}</span></div></label>`).join('');
+  /* Section tarifs : 3 cartes → liens Stripe Checkout */
+  $('spCards').innerHTML=plans.map(p=>`<article class="glass rounded-2xl p-7 flex flex-col${p.rec?' featured':''}">
+    <div class="flex items-center justify-between"><h3 class="font-semibold text-white">${p.n}</h3>${p.rec?`<span class="text-[10px] font-medium tracking-wide text-amber-300/90">${l.spRec}</span>`:''}</div>
+    <p class="mt-5 text-4xl font-semibold text-white tracking-tight">${price(p.p)}</p>
+    <p class="mt-1 text-sm text-zinc-400 font-light">${p.d} ${l.pDays}${p.d>30?', '+price(+(p.p/(p.d/30)).toFixed(1))+l.spPer:''}</p>
+    <p class="mt-5 mb-7 text-sm text-zinc-300 font-light">${l.spFeat}</p>
+    <button type="button" data-act="plan" data-plan="${p.d}" class="mt-auto text-center rounded-full border border-white/10 text-sm font-medium py-2.5 transition ${p.rec?'bg-white text-[#050505] hover:bg-violet-200':'bg-white/10 text-white hover:bg-white hover:text-[#050505]'}">${l.spCta} ${p.n}</button></article>`).join('');
+}
+function applyLang(){
+  const l=L();
+  document.documentElement.lang=lang;
+  document.querySelectorAll('[data-i18n]').forEach(el=>el.textContent=l[el.dataset.i18n]);
+  document.querySelectorAll('[data-ph]').forEach(el=>el.placeholder=l[el.dataset.ph]);   // placeholders du formulaire inclus
+  document.querySelectorAll('[data-lang]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.lang===lang));
+  renderFilters();renderPlans();setPay();cards.length?relabel():buildGrid();applyFilter();
+}
+document.querySelector('.lang').addEventListener('click',e=>{
+  const b=e.target.closest('[data-lang]');if(!b||b.dataset.lang===lang)return;
+  lang=b.dataset.lang;try{localStorage.setItem('cs-lang',lang);}catch(err){}
+  applyLang();
+});
+
+/* ===================== 5) RECHERCHE, FILTRES, ACTIONS ===================== */
+$('filters').addEventListener('click',e=>{const b=e.target.closest('[data-id]');if(!b)return;active=b.dataset.id;applyFilter();});
+$('search').addEventListener('input',e=>{query=e.target.value;applyFilter();});
+$('reset').addEventListener('click',()=>{query='';active='all';$('search').value='';applyFilter();$('search').focus();});
+
+function toast(msg){const t=$('toast');t.textContent=msg;t.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),2200);}
+async function copy(text){
+  try{await navigator.clipboard.writeText(text);}
+  catch(e){const a=document.createElement('textarea');a.value=text;a.style.cssText='position:fixed;opacity:0';document.body.appendChild(a);a.select();try{document.execCommand('copy');}catch(_){}a.remove();}
+}
+/* Partager / signaler (délégation d'événements, valable pour les cartes normales et vedettes) */
+document.addEventListener('click',async e=>{
+  const b=e.target.closest('[data-act]');if(!b)return;
+  if(b.dataset.act==='tag'){   // clic sur un hashtag : filtre « Tous » + #tag dans la recherche
+    active='all';query='#'+b.dataset.tag;$('search').value=query;applyFilter();
+    $('filters').scrollIntoView({behavior:'smooth',block:'start'});return;
+  }
+  if(b.dataset.act==='plan'){openModal(+b.dataset.plan);return;}   // grille tarifaire : ouvre la modale
+  const t=toolsData[+b.dataset.i];
+  if(b.dataset.act==='share'){await copy(t.affiliate_link_placeholder||t.url);toast(L().copied);}
+  if(b.dataset.act==='report'&&!reported.has(t.name)){
+    const now=Date.now();
+    if(now-lastReportTime<3000){toast(L().reportWait);return;}   // moins de 3 s depuis le dernier signalement : on bloque
+    lastReportTime=now;
+    reported.add(t.name);try{localStorage.setItem('cs-reported',JSON.stringify([...reported]));}catch(_){}
+    post({_subject:'Creator Stack: lien mort signalé',type:'dead_link',tool:t.name,url:t.url,_gotcha:''}).catch(()=>{});   // envoi à Formspree
+    document.querySelectorAll(`[data-act=report][data-i="${b.dataset.i}"]`).forEach(x=>x.textContent=L().reported);
+    toast(L().reportToast);
+  }
+});
+
+/* ===================== 6) MODALE & ACCESSIBILITÉ ===================== */
+const modal=$('modal'),form=$('form');
+const isOpen=()=>modal.classList.contains('open');
+function openModal(planDays){
+  lastFocus=document.activeElement;paidPlan=null;setPay();
+  form.classList.remove('hidden');$('thanks').classList.add('hidden');
+  if(planDays){   // depuis la grille tarifaire : Sponsorisé pré-coché + formule sélectionnée
+    form.elements.sponsored.checked=true;$('plans').classList.remove('hidden');form.elements.email.required=true;
+    const r=form.querySelector(`[name=plan][value="${planDays}"]`);if(r)r.checked=true;
+  }
+  modal.classList.add('open');modal.setAttribute('aria-hidden','false');
+  setTimeout(()=>form.elements.name.focus(),120);
+}
+function closeModal(){modal.classList.remove('open');modal.setAttribute('aria-hidden','true');if(lastFocus)lastFocus.focus();}   // le focus revient au bouton d'origine
+function trapFocus(e){   // garde le focus clavier dans la modale
+  const f=[...$('panel').querySelectorAll('button,input,select,a[href]')].filter(el=>!el.disabled&&el.offsetParent!==null);
+  if(!f.length)return;const first=f[0],last=f[f.length-1];
+  if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}
+  else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}
+}
+$('openModal').addEventListener('click',()=>openModal());
+$('closeModal').addEventListener('click',closeModal);
+$('closeThanks').addEventListener('click',closeModal);
+form.elements.sponsored.addEventListener('change',e=>{   // la mise en avant affiche les tarifs et rend l'email obligatoire
+  $('plans').classList.toggle('hidden',!e.target.checked);form.elements.email.required=e.target.checked;
+  if(e.target.checked&&!form.querySelector('[name=plan]:checked')){const r=form.querySelector('[name=plan]');if(r)r.checked=true;}   // aucune formule choisie : Starter par défaut
+});
+/* Envoi réel vers Formspree (POST JSON) : propositions d'outils, signalements */
+let paidPlan=null;
+function setPay(){   // bouton Stripe dynamique : « Procéder au paiement Stripe (Pro — 39 €) »
+  $('payWrap').classList.toggle('hidden',!paidPlan);
+  if(paidPlan){const a=$('payLink');a.textContent=`${L().pay} (${paidPlan.n} — ${price(paidPlan.p)})`;a.href=paidPlan.s;}
+}
+const FORMSPREE='https://formspree.io/f/mjykzqbn';
+async function post(data){
+  const r=await fetch(FORMSPREE,{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify(data)});
+  if(!r.ok)throw new Error(r.status);
+}
+form.addEventListener('submit',async e=>{
+  e.preventDefault();
+  const d=Object.fromEntries(new FormData(form)),btn=form.querySelector('[type=submit]');
+  d.sponsored=!!d.sponsored;
+  const plan=d.sponsored?plans.find(x=>x.d==d.plan):null;
+  if(plan){d.formule=plan.n;d.days=plan.d;d.price_eur=plan.p;}
+  delete d.plan;d._subject='Creator Stack: nouvelle proposition d\'outil';
+  if(d._gotcha)return;   // honeypot rempli : robot
+  btn.disabled=true;
+  try{await post(d);}catch(err){btn.disabled=false;toast(L().sendErr);return;}   // en cas d'échec, le formulaire reste rempli
+  btn.disabled=false;form.reset();$('plans').classList.add('hidden');form.elements.email.required=false;
+  paidPlan=plan;setPay();   // propose le paiement Stripe de la formule choisie
+  form.classList.add('hidden');$('thanks').classList.remove('hidden');
+});
+
+/* Raccourcis : Ctrl/Cmd + K ou « / » → recherche ; Échap → ferme la modale ; Tab piégé dans la modale */
+$('kbd').textContent=/Mac|iPhone|iPad/.test(navigator.platform||navigator.userAgent)?'⌘ K':'Ctrl K';
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'&&isOpen())closeModal();
+  else if(e.key==='Tab'&&isOpen())trapFocus(e);
+  else if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();if(!isOpen()){$('search').focus();$('search').select();}}
+  else if(e.key==='/'&&!isOpen()&&!/INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName)){e.preventDefault();$('search').focus();}
+});
+
+applyLang();   // initialisation
+</script>
+</body>
+</html>
